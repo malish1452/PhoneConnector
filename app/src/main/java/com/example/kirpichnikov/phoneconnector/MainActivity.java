@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void onClickStart(View view) {
 
+        startService( new Intent(this,BluetoothService.class));
     }
 
     public void onClickStop(View view) {

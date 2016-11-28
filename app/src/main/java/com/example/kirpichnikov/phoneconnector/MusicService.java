@@ -1,13 +1,17 @@
 package com.example.kirpichnikov.phoneconnector;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -19,6 +23,11 @@ public class MusicService extends Service {
     MediaPlayer mediaPlayer;
     AudioManager audioManager;
     final String LOG_TAG = "myLogs";
+    public final static String BROADCAST_ACTION="ru.phoneconnector.CONTROLLER_BUTTON_PRESSED";
+    BroadcastReceiver br;
+    MediaPlayer mpMusic;
+    AFListener afListenerMusic;
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -30,7 +39,34 @@ public class MusicService extends Service {
         super.onCreate();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
 
-        Log.d(LOG_TAG, "onCreate");
+        br = new BroadcastReceiver() {
+            // действия при получении сообщений
+            public void onReceive(Context context, Intent intent) {
+                String command = intent.getStringExtra("COMMAND");
+
+                mpMusic = new MediaPlayer();
+                try {
+                    mpMusic.setDataSource("mnt/sdcard/Music/music.mp3");
+                    mpMusic.prepare();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                //mpMusic.setOnCompletionListener(this);
+
+                afListenerMusic = new AFListener(mpMusic, "Music");
+                int requestResult = audioManager.requestAudioFocus(afListenerMusic,
+                        AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+                Log.d(LOG_TAG, "Music request focus, result: " + requestResult);
+
+                mpMusic.start();
+            }
+        };
+        // создаем фильтр для BroadcastReceiver
+        IntentFilter intFilt = new IntentFilter(BROADCAST_ACTION);
+        // регистрируем (включаем) BroadcastReceiver
+        registerReceiver(br, intFilt);
+
+
     }
 
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -64,4 +100,34 @@ public class MusicService extends Service {
         }).start();
     }
 
+    class AFListener implements AudioManager.OnAudioFocusChangeListener {
+
+        String label = "";
+        MediaPlayer mp;
+
+        public AFListener(MediaPlayer mp, String label) {
+            this.label = label;
+            this.mp = mp;
+        }
+
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+            String event = "";
+            switch (focusChange) {
+                case AudioManager.AUDIOFOCUS_LOSS:
+                    event = "AUDIOFOCUS_LOSS";
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                    event = "AUDIOFOCUS_LOSS_TRANSIENT";
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                    event = "AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK";
+                    break;
+                case AudioManager.AUDIOFOCUS_GAIN:
+                    event = "AUDIOFOCUS_GAIN";
+                    break;
+            }
+            Log.d(LOG_TAG, label + " onAudioFocusChange: " + event);
+        }
+    }
 }

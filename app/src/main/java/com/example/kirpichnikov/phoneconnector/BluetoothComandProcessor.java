@@ -4,10 +4,13 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.IBinder;
-import android.support.v4.media.session.MediaButtonReceiver;
-import android.support.v4.media.session.PlaybackStateCompat;
+
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -28,26 +31,32 @@ public class BluetoothComandProcessor extends Service {
     UUID mUuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
     ExecutorService es;
 
-    public void onCreate() {
-        super.onCreate();
-        es = Executors.newFixedThreadPool(1);
-    }
+
+    public final static String BROADCAST_ACTION="ru.phoneconnector.CONTROLLER_IS_UP";
 
     public IBinder onBind(Intent intent) {
         return null;
     }
 
-    public void onDestroy()
-    {
-        super.onDestroy();
+
+    public void onCreate() {
+        super.onCreate();
+        es=Executors.newFixedThreadPool(1);
+
+
     }
 
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        BluetoothComandProcessor.RunablePart runablePart = new BluetoothComandProcessor.RunablePart(startId);
-        es.execute(runablePart);
-        return Service.START_STICKY;
+       RunablePart runablePart=new RunablePart();
+        runablePart.run();
+
+        return START_STICKY;
     }
+    public void onDestroy(){
+
+    }
+
 
 
     class RunablePart implements Runnable{
@@ -57,8 +66,10 @@ public class BluetoothComandProcessor extends Service {
         private BluetoothSocket btControllerSocket;
         int startId;
         UUID mUuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
-        public RunablePart (int startId){
-            this.startId=startId;
+        public final static String BROADCAST_ACTION="ru.phoneconnector.CONTROLLER_BUTTON_PRESSED";
+
+        public RunablePart (){
+
         }
 
         @Override
@@ -103,7 +114,7 @@ public class BluetoothComandProcessor extends Service {
                                 btControllerSocket.getInputStream();
                             }
                             timeStampedMessage=timeStampedMessage+timeStampMessage(rawMessage.substring(0,rawMessage.lastIndexOf('}')+1));
-                            // rawMessage=rawMessage.substring(rawMessage.lastIndexOf('}')+1);
+
                             gotCommand=true;
                         }
                         if (gotCommand) {
@@ -115,7 +126,7 @@ public class BluetoothComandProcessor extends Service {
                             for (int i = 0; i < jsonArray.length()-1; i++) {
                                 long  deff = jsonArray.getJSONObject(i+1).optLong("timeReceive") - jsonArray.getJSONObject(i).optLong("timeReceive");
                                 jsonArray.getJSONObject(i).put("duration", deff);
-                                //  Log.i("PhoneC","Got command "+ Integer.toString(jsonArray.getJSONObject(i).getInt("id")) + ", duration "+ Long.toString(deff));
+
                                 SendCommand(jsonArray.getJSONObject(i));
                             }
 
@@ -128,14 +139,14 @@ public class BluetoothComandProcessor extends Service {
 
                 } catch (IOException e) {
                     e.printStackTrace();
-                    startService(new Intent(BluetoothService.class));
-                    stopSelf(startId);
+
+
                 } catch (JSONException e) {
                     e.printStackTrace();
-                    stopSelf(startId);
+
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                    stopSelf(startId);
+
                 }
 
 
@@ -146,18 +157,45 @@ public class BluetoothComandProcessor extends Service {
 
         private void SendCommand(JSONObject input) {
 
+
+            //1 - отпущено
+            //2 - Mute
+            //3 - Mode
+            //4 - down
+            //5 - up
+            //6 - volume +
+            //7 - volume -
+
             try {
                 String type = input.getString("type");
-                if (type.equals("button")){
+                if (type.equals("button")) {
                     int buttonId = input.getInt("id");
-                    switch (buttonId) {
-                        case 7:
-                            MediaButtonReceiver mediaButtonReceiver = new MediaButtonReceiver();
-                            mediaButtonReceiver.buildMediaButtonPendingIntent(getApplicationContext(), PlaybackStateCompat.ACTION_PLAY_PAUSE);
+                    long duration = input.getLong("duration");
+                    Intent buttonIntent = new Intent(BROADCAST_ACTION);
+                    if (buttonId > 1) {
+                        if (buttonId == 4) {
+                            if (duration < 2000) {
+                                buttonIntent.putExtra("COMMAND", "NEXT");
+                            } else {
+                                buttonIntent.putExtra("COMMAND", "NEXT");
+                            }
+                        }
+                        if (buttonId == 5) {
+                            if (duration < 2000) {
+                                buttonIntent.putExtra("COMMAND", "BEGIN");
+                            } else {
+                                buttonIntent.putExtra("COMMAND", "PREVIOUS");
+                            }
+                        }
+                        if (buttonId == 6) {
+                            buttonIntent.putExtra("COMMAND", "VOLUME_UP");
+                        }
+                        if (buttonId == 7) {
+                            buttonIntent.putExtra("COMMAND", "VOLUME_DOWN");
+                        }
 
-                            // /Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-                            //intent.putExtra("")
-                            break;
+
+                        sendBroadcast(buttonIntent);
 
                     }
                 }
