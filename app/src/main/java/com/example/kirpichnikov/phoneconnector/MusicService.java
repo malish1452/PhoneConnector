@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.Environment;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -23,7 +24,7 @@ public class MusicService extends Service {
     MediaPlayer mediaPlayer;
     AudioManager audioManager;
     final String LOG_TAG = "myLogs";
-    public final static String BROADCAST_ACTION="ru.phoneconnector.CONTROLLER_BUTTON_PRESSED";
+    public final static String BROADCAST_ACTION="com.example.kirpichnikov.phoneconnector.CONTROLLER_BUTTON_PRESSED";
     BroadcastReceiver br;
     MediaPlayer mpMusic;
     AFListener afListenerMusic;
@@ -37,26 +38,25 @@ public class MusicService extends Service {
 
     public void onCreate() {
         super.onCreate();
-        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+
 
         br = new BroadcastReceiver() {
-            // действия при получении сообщений
+
             public void onReceive(Context context, Intent intent) {
                 String command = intent.getStringExtra("COMMAND");
 
                 mpMusic = new MediaPlayer();
                 try {
-                    mpMusic.setDataSource("mnt/sdcard/Music/music.mp3");
+                    String dir = Environment.getExternalStorageDirectory().getAbsolutePath();
+                   // dir=dir+"/Sounds/Alan Walker - Faded.mp3";
+                   // dir = "storage/3037-3562/Sounds/Alan Walker - Faded.mp3";
+                    dir = "sdcard/Download/Alan Walker - Faded.mp3";
+                    mpMusic.setDataSource(dir);
                     mpMusic.prepare();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
                 //mpMusic.setOnCompletionListener(this);
-
-                afListenerMusic = new AFListener(mpMusic, "Music");
-                int requestResult = audioManager.requestAudioFocus(afListenerMusic,
-                        AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
-                Log.d(LOG_TAG, "Music request focus, result: " + requestResult);
 
                 mpMusic.start();
             }
