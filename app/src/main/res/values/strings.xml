@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PhoneConnector</string>
+    <string name="app_name">PhoneConnector2</string>
     <string name="Sstart">Start service</string>
     <string name="Sstop">Stop service</string>
 </resources>
